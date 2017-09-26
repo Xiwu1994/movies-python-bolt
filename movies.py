@@ -3,10 +3,10 @@ from json import dumps
 
 from flask import Flask, g, Response, request
 
-from neo4j.v1 import GraphDatabase, basic_auth, ResultError
+from neo4j.v1 import GraphDatabase, basic_auth
 
 app = Flask(__name__, static_url_path='/static/')
-driver = GraphDatabase.driver('bolt://localhost')
+driver = GraphDatabase.driver('bolt://localhost', auth=basic_auth("neo4j", "root"))
 # basic auth with: driver = GraphDatabase.driver('bolt://localhost', auth=basic_auth("<user>", "<pwd>"))
 
 def get_db():
@@ -43,10 +43,25 @@ def serialize_cast(cast):
 
 @app.route("/graph")
 def get_graph():
+    try:
+        q = request.args["q"]
+    except KeyError:
+        return Response(build_graph(), mimetype="application/json")
+    else:
+        return Response(build_graph(q), mimetype="application/json")
+
+def build_graph(title = ""):
+    print "title: ", title
     db = get_db()
-    results = db.run("MATCH (m:Movie)<-[:ACTED_IN]-(a:Person) "
-             "RETURN m.title as movie, collect(a.name) as cast "
-             "LIMIT {limit}", {"limit": request.args.get("limit", 100)})
+    if title == "":
+        results = db.run(" MATCH (m:Movie)<-[:ACTED_IN]-(a:Person) \
+              RETURN m.title as movie, collect(a.name) as cast \
+              LIMIT 100 ")
+    else:
+        results = db.run("MATCH (m:Movie)<-[:ACTED_IN]-(a:Person) WHERE m.title =~ {title} \
+        RETURN m.title as movie, collect(a.name) as cast LIMIT 100", 
+        {"title": "(?i).*" + title + ".*"})
+    
     nodes = []
     rels = []
     i = 0
@@ -63,9 +78,7 @@ def get_graph():
                 source = i
                 i += 1
             rels.append({"source": source, "target": target})
-    return Response(dumps({"nodes": nodes, "links": rels}),
-                    mimetype="application/json")
-
+    return dumps({"nodes": nodes, "links": rels})
 
 @app.route("/search")
 def get_search():
@@ -77,20 +90,19 @@ def get_search():
         db = get_db()
         results = db.run("MATCH (movie:Movie) "
                  "WHERE movie.title =~ {title} "
-                 "RETURN movie", {"title": "(?i).*" + q + ".*"}
-        )
-        return Response(dumps([serialize_movie(record['movie']) for record in results]),
+                 "RETURN movie", {"title": "(?i).*" + q + ".*"})
+        res_list = [serialize_movie(record['movie']) for record in results]
+        return Response(dumps(res_list),
                         mimetype="application/json")
-
 
 @app.route("/movie/<title>")
 def get_movie(title):
     db = get_db()
     results = db.run("MATCH (movie:Movie {title:{title}}) "
              "OPTIONAL MATCH (movie)<-[r]-(person:Person) "
-             "RETURN movie.title as title,"
+             "RETURN movie.title as title, "
              "collect([person.name, "
-             "         head(split(lower(type(r)), '_')), r.roles]) as cast "
+             "head(split(lower(type(r)), '_')), r.roles]) as cast "
              "LIMIT 1", {"title": title})
 
     result = results.single();
@@ -98,7 +110,6 @@ def get_movie(title):
                            "cast": [serialize_cast(member)
                                     for member in result['cast']]}),
                     mimetype="application/json")
-
 
 if __name__ == '__main__':
     app.run(port=8080)
