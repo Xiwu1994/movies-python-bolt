@@ -118,25 +118,31 @@
 	              //.style("stroke-width", function(d) { return Math.sqrt(1); })
 	              .attr("marker-end", "url(#end)");
 	
-	            var node = svg.selectAll(".node")
-	              .data(graph.nodes)
-	              .enter().append("circle")
-	              .attr("class", "node")
-	              .attr("r", 5)
-	              .style("fill", function(d) { return color(d.label); })
-	              .call(force.drag);
-	
-	            node.append("title")
+	            var gnodes = svg.selectAll('g.gnode')
+	            	.data(graph.nodes)
+	            	.enter()
+	            	.append('g')
+	            	.classed('gnode', true);
+	            
+	            var node = gnodes.append("circle")
+	            .attr("class", "node")
+	            .attr("r", 5)
+	            .style("fill", function(d) { return color(d.label); })
+	            .call(force.drag);
+	            
+	            gnodes.append("text")
+	              .attr("x", 12)
+  			  	  .attr("dy", ".35em")
 	              .text(function(d) { return d.name; });
-	
+	            
 	            force.on("tick", function() {
-	            	link.attr("x1", function(d) { return d.source.x; })
-	                	.attr("y1", function(d) { return d.source.y; })
-	                	.attr("x2", function(d) { return d.target.x; })
-	                	.attr("y2", function(d) { return d.target.y; });
-	
-	            	node.attr("cx", function(d) { return d.x; })
-	                	.attr("cy", function(d) { return d.y; });
+	                link.attr("x1", function(d) { return d.source.x; })
+	                    .attr("y1", function(d) { return d.source.y; })
+	                    .attr("x2", function(d) { return d.target.x; })
+	                    .attr("y2", function(d) { return d.target.y; });
+	                gnodes.attr("transform", function(d) { 
+	                    return 'translate(' + [d.x, d.y] + ')'; 
+	                });
 	            });
             });
         }
