@@ -10,29 +10,18 @@ driver = GraphDatabase.driver('bolt://localhost', auth=basic_auth("neo4j", "root
 # basic auth with: driver = GraphDatabase.driver('bolt://localhost', auth=basic_auth("<user>", "<pwd>"))
 
 def get_db():
-    if not hasattr(g, 'neo4j_db'):
+    if not hasattr(g, 'lineage_analysis.db'):
         g.neo4j_db = driver.session()
     return g.neo4j_db
 
 @app.teardown_appcontext
 def close_db(error):
-    if hasattr(g, 'neo4j_db'):
+    if hasattr(g, 'lineage_analysis.db'):
         g.neo4j_db.close()
 
 @app.route("/")
 def get_index():
     return app.send_static_file('index.html')
-
-def serialize_movie(movie):
-    return {
-        'id': movie['id'],
-        'title': movie['title'],
-        'summary': movie['summary'],
-        'released': movie['released'],
-        'duration': movie['duration'],
-        'rated': movie['rated'],
-        'tagline': movie['tagline']
-    }
 
 def serialize_cast(cast):
     return {
@@ -50,27 +39,28 @@ def get_graph():
     else:
         return Response(build_graph(q), mimetype="application/json")
 
-def build_graph(title = ""):
-    print "title: ", title
+def build_graph(table = ""):
+    print "build_graph(table = '') table:", table
     db = get_db()
-    if title == "":
-        results = db.run(" MATCH (m:Movie)<-[:ACTED_IN]-(a:Person) \
-              RETURN m.title as movie, collect(a.name) as cast \
+    if table == "":
+        results = db.run(" MATCH (m:Table)<-[:depTable]-(a:Table) \
+              RETURN a.name as table, collect(m.name) as cast \
               LIMIT 100 ")
     else:
-        results = db.run("MATCH (m:Movie)<-[:ACTED_IN]-(a:Person) WHERE m.title =~ {title} \
-        RETURN m.title as movie, collect(a.name) as cast LIMIT 100", 
-        {"title": "(?i).*" + title + ".*"})
+        results = db.run("MATCH (m:Table)<-[:depTable]-(a:Table) WHERE a.name =~ {table} \
+        RETURN a.name as table, collect(m.name) as cast LIMIT 100", 
+        {"table": "(?i).*" + table + ".*"})
     
     nodes = []
     rels = []
     i = 0
     for record in results:
-        nodes.append({"title": record["movie"], "label": "movie"})
+        print record['table']
+        nodes.append({"name": record["table"], "label": "Table"})
         target = i
         i += 1
         for name in record['cast']:
-            actor = {"title": name, "label": "actor"}
+            actor = {"name": name, "label": "Table"}
             try:
                 source = nodes.index(actor)
             except ValueError:
@@ -88,28 +78,12 @@ def get_search():
         return []
     else:
         db = get_db()
-        results = db.run("MATCH (movie:Movie) "
-                 "WHERE movie.title =~ {title} "
-                 "RETURN movie", {"title": "(?i).*" + q + ".*"})
-        res_list = [serialize_movie(record['movie']) for record in results]
+        results = db.run("MATCH (table:Table) "
+                 "WHERE table.name =~ {table} "
+                 "RETURN table", {"table": "(?i).*" + q + ".*"})
+        res_list = [record['table']['name'] for record in results]
         return Response(dumps(res_list),
-                        mimetype="application/json")
-
-@app.route("/movie/<title>")
-def get_movie(title):
-    db = get_db()
-    results = db.run("MATCH (movie:Movie {title:{title}}) "
-             "OPTIONAL MATCH (movie)<-[r]-(person:Person) "
-             "RETURN movie.title as title, "
-             "collect([person.name, "
-             "head(split(lower(type(r)), '_')), r.roles]) as cast "
-             "LIMIT 1", {"title": title})
-
-    result = results.single();
-    return Response(dumps({"title": result['title'],
-                           "cast": [serialize_cast(member)
-                                    for member in result['cast']]}),
-                    mimetype="application/json")
+            mimetype="application/json")
 
 if __name__ == '__main__':
     app.run(port=8080)
