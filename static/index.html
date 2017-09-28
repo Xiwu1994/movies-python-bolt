@@ -2,7 +2,8 @@
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="http://neo4j-contrib.github.io/developer-resources/language-guides/assets/css/main.css">
-    <title>Neo4j Movies</title>
+    <!-- <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}" /> -->
+    <title>Lineage Show</title>
 </head>
 
 <body>
@@ -26,9 +27,10 @@
                     <a href="http://neo4j.com/developer-resources">
                     <img src="http://neo4j-contrib.github.io/developer-resources/language-guides/assets/img/logo-white.svg" alt="Neo4j World's Leading Graph Database" id="logo">
                     </a>
+                    
                 </div>
                 <div class="navbar-brand">
-                    <div class="brand">Neo4j Lineage</div>
+                    <div class="brand">Yunniao</div>
                 </div>
             </div>
         </div>
@@ -51,9 +53,7 @@
         </div>
     </div>
     <div class="col-md-7">
-        <div class="panel panel-default">
-            <div class="panel-heading" id="title">Graph</div>
-            <div id="graph" style="height:1000px;"></div>
+        <div class="panel panel-default" id="graph">
         </div>
     </div>
 </div>
@@ -61,7 +61,6 @@
 
 <script src="http://code.jquery.com/jquery-1.10.2.min.js"></script>
 <script src="http://d3js.org/d3.v3.min.js"></script>
-<script src="dndTree.js"></script>
 <style type="text/css">
   .node {
     cursor: pointer;
@@ -74,16 +73,18 @@
   .node circle {
     fill: #fff;
     stroke: steelblue;
-    stroke-width: 1.5px;
+    stroke-width: 5.0px;
   }
    
   .node text {
-    font-size:10px; 
+    font-size:13px;
+    font-weight:bold;
     font-family:sans-serif;
   }
    
   .link {
     fill: none;
+    font-weight:bold;
     stroke: #ccc;
     stroke-width: 1.5px;
   }
@@ -107,12 +108,10 @@
     $(function () {
         function showGraph(table) {
             $("#graph").empty();
-            console.log("function showGraph()");
             
             treeJSON = d3.json("/tree?q="+table, function(error, treeData) {
-            //d3.json("/graph?q="+table, function(error, graph) {
 
-            	console.log(treeData);
+            	
                 // Calculate total nodes, max label length
                 var totalNodes = 0;
                 var maxLabelLength = 0;
@@ -128,8 +127,10 @@
                 var root;
 
                 // size of the diagram
-                var viewerWidth = $(document).width();
-                var viewerHeight = $(document).height();
+                /* var viewerWidth = $(document).width();
+                var viewerHeight = $(document).height(); */
+                var viewerWidth = 820;
+                var viewerHeight = 800;
 
                 var tree = d3.layout.tree()
                     .size([viewerHeight, viewerWidth]);
@@ -137,7 +138,7 @@
                 // define a d3 diagonal projection for use by the node paths later on.
                 var diagonal = d3.svg.diagonal()
                     .projection(function(d) {
-                        return [d.y, d.x];
+                        return [d.y/1, d.x];
                     });
 
                 // A recursive helper function for performing some setup by walking through all nodes
@@ -193,8 +194,8 @@
                         scaleX = translateCoords.scale[0];
                         scaleY = translateCoords.scale[1];
                         scale = zoomListener.scale();
-                        svgGroup.transition().attr("transform", "translate(" + translateX + "," + translateY + ")scale(" + scale + ")");
-                        d3.select(domNode).select('g.node').attr("transform", "translate(" + translateX + "," + translateY + ")");
+                        svgGroup.transition().attr("transform", "translate(" + translateX/1 + "," + translateY + ")scale(" + scale + ")");
+                        d3.select(domNode).select('g.node').attr("transform", "translate(" + translateX/1 + "," + translateY + ")");
                         zoomListener.scale(zoomListener.scale());
                         zoomListener.translate([translateX, translateY]);
                         panTimer = setTimeout(function() {
@@ -309,7 +310,7 @@
                         d.x0 += d3.event.dy;
                         d.y0 += d3.event.dx;
                         var node = d3.select(this);
-                        node.attr("transform", "translate(" + d.y0 + "," + d.x0 + ")");
+                        node.attr("transform", "translate(" + d.y0/1 + "," + d.x0 + ")");
                         updateTempConnector();
                     }).on("dragend", function(d) {
                         if (d == root) {
@@ -473,10 +474,10 @@
 
                     // Set widths between levels based on maxLabelLength.
                     nodes.forEach(function(d) {
-                        d.y = (d.depth * (maxLabelLength * 10)); //maxLabelLength * 10px
+                        d.y = (d.depth * (maxLabelLength * 3)); //maxLabelLength * 10px
                         // alternatively to keep a fixed scale one can set a fixed depth per level
                         // Normalize for fixed-depth by commenting out below line
-                        // d.y = (d.depth * 500); //500px per level.
+                        // d.y = (d.depth * 500); /500px per level.
                     });
 
                     // Update the nodes…
@@ -490,7 +491,7 @@
                         .call(dragListener)
                         .attr("class", "node")
                         .attr("transform", function(d) {
-                            return "translate(" + source.y0 + "," + source.x0 + ")";
+                            return "translate(" + source.y0/1 + "," + source.x0 + ")";
                         })
                         .on('click', click);
 
@@ -552,7 +553,7 @@
                     var nodeUpdate = node.transition()
                         .duration(duration)
                         .attr("transform", function(d) {
-                            return "translate(" + d.y + "," + d.x + ")";
+                            return "translate(" + d.y/1 + "," + d.x + ")";
                         });
 
                     // Fade the text in
@@ -563,7 +564,7 @@
                     var nodeExit = node.exit().transition()
                         .duration(duration)
                         .attr("transform", function(d) {
-                            return "translate(" + source.y + "," + source.x + ")";
+                            return "translate(" + source.y/1 + "," + source.x + ")";
                         })
                         .remove();
 
@@ -627,7 +628,12 @@
                 root = treeData;
                 root.x0 = viewerHeight / 2;
                 root.y0 = 0;
-
+                
+             	// Collapse all children of roots children before rendering.
+            	root.children.forEach(function(child){
+            		collapse(child);
+            	});
+             	
                 // Layout the tree initially and center on the root node.
                 update(root);
                 centerNode(root);
