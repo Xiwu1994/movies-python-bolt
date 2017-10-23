@@ -1,15 +1,12 @@
 #!/usr/bin/env python
 # coding:utf-8
 from json import dumps
-
 from flask import Flask, g, Response, request
-
 from neo4j.v1 import GraphDatabase, basic_auth
 from click.types import STRING
 
 app = Flask(__name__, static_url_path='/static/')
 driver = GraphDatabase.driver('bolt://localhost', auth=basic_auth("neo4j", "root"))
-# basic auth with: driver = GraphDatabase.driver('bolt://localhost', auth=basic_auth("<user>", "<pwd>"))
 
 def get_db():
     if not hasattr(g, 'lineage_analysis.db'):
@@ -26,14 +23,16 @@ def get_index():
     return app.send_static_file('index.html')
 
 @app.route("/tree")
-def get_graph():
+def get_graph_table():
     try:
-        q = request.args["q"]
+        name = request.args["name"]
+        flag = request.args["flag"]
+        print name, flag
     except KeyError:
         return Response(build_tree(), mimetype="application/json")
     else:
-        return Response(build_tree(q), mimetype="application/json")
-
+        return Response(build_tree(name, flag), mimetype="application/json")
+    
 def chang_name(table_name_and_id_dict, children_list):
     for elem in children_list:
         elem['name'] = table_name_and_id_dict[elem['name']]
@@ -41,17 +40,21 @@ def chang_name(table_name_and_id_dict, children_list):
             elem['children'] = chang_name(table_name_and_id_dict, elem['children'])
     return children_list
 
-def build_tree(input_table=""):
+def build_tree(name="", flag="0"):
     table_name_and_id_dict = {}
     db = get_db()
-    if input_table=="":
+    if name=="":
         results = db.run("MATCH (n:Table)-[r:depTable*]->(m:Table) WHERE n.name = 'app.app_base_customer_info'\
             RETURN n as source_table,m as target_table,r as relation_list")
         table_name_and_id_dict['0'] = 'app.app_base_customer_info'
-    else:
+    elif flag == "0":
         results = db.run("MATCH (n:Table)-[r:depTable*]->(m:Table) WHERE n.name =~ {table}\
-            RETURN n as source_table,m as target_table,r as relation_list", {"table": "(?i).*" + input_table + ".*"})
-        table_name_and_id_dict['0'] = input_table
+            RETURN n as source_table,m as target_table,r as relation_list", {"table": "(?i).*" + name + ".*"})
+        table_name_and_id_dict['0'] = name
+    else:
+        results = db.run("MATCH (n:Column)-[r:depColumn*]->(m:Column) WHERE n.name =~ {column}\
+            RETURN n as source_table,m as target_table,r as relation_list", {"column": "(?i).*" + name + ".*"})
+        table_name_and_id_dict['0'] = name
     return_dict = {} #最后输出结果
     return_dict['name'] = '0'
     for recode in results:
@@ -75,8 +78,8 @@ def build_tree(input_table=""):
         return_dict['children'] = chang_name(table_name_and_id_dict, return_dict['children'])
     return dumps(return_dict)
 
-@app.route("/search")
-def get_search():
+@app.route("/search_table")
+def get_search_table():
     try:
         q = request.args["q"]
     except KeyError:
@@ -87,6 +90,21 @@ def get_search():
                  "WHERE table.name =~ {table} "
                  "RETURN table", {"table": "(?i).*" + q + ".*"})
         res_list = [record['table']['name'] for record in results]
+        return Response(dumps(res_list),
+            mimetype="application/json")
+
+@app.route("/search_column")
+def get_search_column():
+    try:
+        q = request.args["q"]
+    except KeyError:
+        return []
+    else:
+        db = get_db()
+        results = db.run("MATCH (column:Column) "
+                 "WHERE column.name =~ {column} "
+                 "RETURN column", {"column": "(?i).*" + q + ".*"})
+        res_list = [record['column']['name'] for record in results]
         return Response(dumps(res_list),
             mimetype="application/json")
 

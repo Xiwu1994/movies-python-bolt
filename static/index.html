@@ -13,11 +13,17 @@
             <div class="col-sm-6 col-md-6">
                 <ul class="nav navbar-nav">
                     <li>
-                        <form role="search" class="navbar-form" id="search">
+                        <form role="search_table" class="navbar-form" id="search_table">
                             <div class="form-group">
-                                <input type="text" value="app" placeholder="Search for Movie Title" class="form-control" name="search">
+                                <input type="text" value="intg" placeholder="Search for Table" class="form-control" name="search_table">
                             </div>
-                            <button class="btn btn-default" type="submit">Search</button>
+                            <button class="btn btn-default" type="submit">Search Table</button>
+                        </form>
+                        <form role="search_column" class="navbar-form" id="search_column">
+                            <div class="form-group">
+                                <input type="text" value="intg" placeholder="Search for Column" class="form-control" name="search_column">
+                            </div>
+                            <button class="btn btn-default" type="submit">Search Column</button>
                         </form>
                     </li>
                 </ul>
@@ -40,11 +46,19 @@
 <div class="row">
     <div class="col-md-5">
         <div class="panel panel-default">
-            <div class="panel-heading">Search Results</div>
-            <table id="results" class="table table-striped table-hover">
+            <table id="results_table" class="table table-striped table-hover">
                 <thead>
                 <tr>
-                    <th>Table</th>
+                    <th>Table List</th>
+                </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+            <table id="results_column" class="table table-striped table-hover">
+                <thead>
+                <tr>
+                    <th>Column List</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -106,11 +120,10 @@
 
 <script type="text/javascript">
     $(function () {
-        function showGraph(table) {
+        function showGraph(name, flag) {
             $("#graph").empty();
             
-            treeJSON = d3.json("/tree?q="+table, function(error, treeData) {
-
+            treeJSON = d3.json("/tree?name="+name+"&flag="+flag, function(error, treeData) {
             	
                 // Calculate total nodes, max label length
                 var totalNodes = 0;
@@ -138,7 +151,7 @@
                 // define a d3 diagonal projection for use by the node paths later on.
                 var diagonal = d3.svg.diagonal()
                     .projection(function(d) {
-                        return [d.y/1, d.x];
+                        return [d.y, d.x];
                     });
 
                 // A recursive helper function for performing some setup by walking through all nodes
@@ -194,8 +207,8 @@
                         scaleX = translateCoords.scale[0];
                         scaleY = translateCoords.scale[1];
                         scale = zoomListener.scale();
-                        svgGroup.transition().attr("transform", "translate(" + translateX/1 + "," + translateY + ")scale(" + scale + ")");
-                        d3.select(domNode).select('g.node').attr("transform", "translate(" + translateX/1 + "," + translateY + ")");
+                        svgGroup.transition().attr("transform", "translate(" + translateX + "," + translateY + ")scale(" + scale + ")");
+                        d3.select(domNode).select('g.node').attr("transform", "translate(" + translateX + "," + translateY + ")");
                         zoomListener.scale(zoomListener.scale());
                         zoomListener.translate([translateX, translateY]);
                         panTimer = setTimeout(function() {
@@ -310,7 +323,7 @@
                         d.x0 += d3.event.dy;
                         d.y0 += d3.event.dx;
                         var node = d3.select(this);
-                        node.attr("transform", "translate(" + d.y0/1 + "," + d.x0 + ")");
+                        node.attr("transform", "translate(" + d.y0 + "," + d.x0 + ")");
                         updateTempConnector();
                     }).on("dragend", function(d) {
                         if (d == root) {
@@ -465,7 +478,7 @@
                         }
                     };
                     childCount(0, root);
-                    var newHeight = d3.max(levelWidth) * 25; // 25 pixels per line  
+                    var newHeight = d3.max(levelWidth) * 60; // 25 pixels per line    <<<<<<<<<<<<<<<<<<< HEIGHT >>
                     tree = tree.size([newHeight, viewerWidth]);
 
                     // Compute the new tree layout.
@@ -474,7 +487,7 @@
 
                     // Set widths between levels based on maxLabelLength.
                     nodes.forEach(function(d) {
-                        d.y = (d.depth * (maxLabelLength * 3)); //maxLabelLength * 10px
+                        d.y = (d.depth * (maxLabelLength * 5)); //maxLabelLength * 10px   <<<<<<<<<<<<<<<<<<<<<<<<< WIDTH >>
                         // alternatively to keep a fixed scale one can set a fixed depth per level
                         // Normalize for fixed-depth by commenting out below line
                         // d.y = (d.depth * 500); /500px per level.
@@ -491,7 +504,7 @@
                         .call(dragListener)
                         .attr("class", "node")
                         .attr("transform", function(d) {
-                            return "translate(" + source.y0/1 + "," + source.x0 + ")";
+                            return "translate(" + source.y0 + "," + source.x0 + ")";
                         })
                         .on('click', click);
 
@@ -553,7 +566,7 @@
                     var nodeUpdate = node.transition()
                         .duration(duration)
                         .attr("transform", function(d) {
-                            return "translate(" + d.y/1 + "," + d.x + ")";
+                            return "translate(" + d.y + "," + d.x + ")";
                         });
 
                     // Fade the text in
@@ -564,7 +577,7 @@
                     var nodeExit = node.exit().transition()
                         .duration(duration)
                         .attr("transform", function(d) {
-                            return "translate(" + source.y/1 + "," + source.x + ")";
+                            return "translate(" + source.y + "," + source.x + ")";
                         })
                         .remove();
 
@@ -640,24 +653,36 @@
             });
         }
         
-        function search() {
-            var query=$("#search").find("input[name=search]").val();
-            $.get("/search?q=" + encodeURIComponent(query),
+        function search_table() {
+            var query=$("#search_table").find("input[name=search_table]").val();
+            $.get("/search_table?q=" + encodeURIComponent(query),
                     function (data) {
-                        var t = $("table#results tbody").empty();
+                        var t = $("table#results_table tbody").empty();
                         if (!data || data.length == 0) return;
                         data.forEach(function (table_name) {
                             $("<tr><td class='table'>" + table_name + "</td></tr>").appendTo(t)
-                                    .click(function() { showGraph($(this).find("td.table").text());})
+                                    .click(function() { showGraph($(this).find("td.table").text(), 0);})
                         });
-                        console.log(data[0]);
-                        showGraph(data[0]);
+                        showGraph(data[0], 0);
                     }, "json");
             return false;
         }
-
-        $("#search").submit(search);
-        search();
+        function search_column() {
+            var query=$("#search_column").find("input[name=search_column]").val();
+            $.get("/search_column?q=" + encodeURIComponent(query),
+                    function (data) {
+                        var t = $("table#results_column tbody").empty();
+                        if (!data || data.length == 0) return;
+                        data.forEach(function (column_name) {
+                            $("<tr><td class='table'>" + column_name + "</td></tr>").appendTo(t)
+                                    .click(function() { showGraph($(this).find("td.table").text(), 1);})
+                        });
+                        showGraph(data[0], 1);
+                    }, "json");
+            return false;
+        }
+        $("#search_table").submit(search_table);
+        $("#search_column").submit(search_column);
     })
 </script>
 
