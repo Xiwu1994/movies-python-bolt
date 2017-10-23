@@ -5,6 +5,9 @@ from flask import Flask, g, Response, request
 from neo4j.v1 import GraphDatabase, basic_auth
 from click.types import STRING
 
+debugFlag = True
+
+
 app = Flask(__name__, static_url_path='/static/')
 driver = GraphDatabase.driver('bolt://localhost', auth=basic_auth("neo4j", "root"))
 
@@ -27,7 +30,6 @@ def get_graph_table():
     try:
         name = request.args["name"]
         flag = request.args["flag"]
-        print name, flag
     except KeyError:
         return Response(build_tree(), mimetype="application/json")
     else:
@@ -49,20 +51,23 @@ def build_tree(name="", flag="0"):
         table_name_and_id_dict['0'] = 'app.app_base_customer_info'
     elif flag == "0":
         results = db.run("MATCH (n:Table)-[r:depTable*]->(m:Table) WHERE n.name =~ {table}\
-            RETURN n as source_table,m as target_table,r as relation_list", {"table": "(?i).*" + name + ".*"})
+            RETURN n as source_table,m as target_table,r as relation_list", {"table": name})
         table_name_and_id_dict['0'] = name
     else:
         results = db.run("MATCH (n:Column)-[r:depColumn*]->(m:Column) WHERE n.name =~ {column}\
-            RETURN n as source_table,m as target_table,r as relation_list", {"column": "(?i).*" + name + ".*"})
+            RETURN n as source_table,m as target_table,r as relation_list", {"column": name})
         table_name_and_id_dict['0'] = name
     return_dict = {} #最后输出结果
     return_dict['name'] = '0'
     for recode in results:
         table_id = str(recode['target_table'].id)
-        table_name = recode['target_table']['name']
+        table_name = recode['target_table']['name']    
         table_name_and_id_dict.setdefault(table_id, table_name)
+        if debugFlag:
+            print 'target_table', table_name, 'relation_list', recode['relation_list']
         # 下面是主题
         return_dict.setdefault('children', [])
+        
         tmp = return_dict['children'] # tmp是一个list
         for deep_relation in recode['relation_list']:
             if len(tmp)!=0 and str(deep_relation.end) == tmp[len(tmp)-1]["name"]:
